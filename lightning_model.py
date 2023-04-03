@@ -5,6 +5,7 @@ import lightning.pytorch as pl
 from transformers import get_linear_schedule_with_warmup
 from typing import Union
 from models import GPT, GPTRewardModel, GPTActor, GPTCritic
+from tokenizer import TiktokenTokenizer
 
 class Experience():
     def __init__(self, 
@@ -435,6 +436,8 @@ class LightningSFTModel(pl.LightningModule):
                         use_bias: bool = True):
         super().__init__()
         
+        #self.logger = 
+
         if hf_model is not None:
             self.model = GPT.from_pretrained(hf_model,
                                         lora_rank,
@@ -463,14 +466,34 @@ class LightningSFTModel(pl.LightningModule):
         self.criterion = nn.CrossEntropyLoss()
 
         self.finetune_method = finetune_method
+        self.tokenizer = TiktokenTokenizer("gpt2")
+        self.sequence_length = sequence_length
         
 
     def forward(self, sequence: torch.Tensor):
         return self.model(sequence, )
 
+    def _generate(self):
+        self.model.eval()
+        tokens = self.tokenizer("Human: How to bake a papaya cake?",
+                                max_length=self.sequence_length//4,
+                                truncation=True,
+                                return_tensors="pt")
+        
+        idx = tokens['input_ids'].unsqueeze(0).to(self.device)
+        completions = self.model.generate(idx, self.sequence_length, 1.0)
+
+        text = self.tokenizer.enc.decode(completions[0].cpu().tolist())
+        return text
+    
     def training_step(self, batch: torch.Tensor, batch_idx: int) -> float:
         loss = self._step(batch, batch_idx)
         self.log('train_loss', loss.item(), on_step=True, on_epoch=False)
+
+        if batch_idx % 1000 == 0:
+            text = self._generate()
+            self.logger.experiment.add_text(text_string=text, tag="generation")
+
         return loss
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int):

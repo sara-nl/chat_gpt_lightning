@@ -49,9 +49,9 @@ model:
   lora_rank: 0
   lr: 0.00001
   vocab_size: 50257
-  n_heads: 12
-  embedding_dim: 768
-  n_layers: 12
+  n_heads: 24
+  embedding_dim: 1024
+  n_layers: 16
   sequence_length: 1024
   dropout_rate: 0.0
   activation_checkpointing: false
@@ -60,8 +60,8 @@ model:
   critic_weights: "./models/RM/rm.ckpt"
   policy_eps: 0.2
   value_eps: 0.4
-  actor_lr: 0.000008
-  critic_lr: 0.000008
+  actor_lr: 0.0000005
+  critic_lr: 0.0000009
   kl_beta: 0.02
   max_new_tokens: 1024
 
