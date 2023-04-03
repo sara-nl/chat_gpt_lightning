@@ -7,9 +7,28 @@ pip install -r requirements.txt
 Make sure to paste the best trained model into ./models/SFT/ or ./models/RM/
 respectively. 
 
-1. python train_sft.py fit -c config_stf.yml
-2. python train_rm.py fit -c config_rm.yml
-3. python train_ppo.py fit -c config_ppo.yml
+```
+cd ./data/
+python prepare_sft_data.py
+```
+ 
+Train supervised finetuning:
+ 
+```
+python train_sft.py fit -c config_stf.yml
+```
+
+Train reward model:
+
+```
+python train_rm.py fit -c config_rm.yml
+```
+
+Train PPO:
+
+```
+python train_ppo.py fit -c config_ppo.yml
+```
 
 TODO:
 
