@@ -60,8 +60,8 @@ model:
   activation_checkpointing: false
   use_bias: true
 data:
-  train_json: "./data/sft_train.json"
-  test_json: "./data/sft_test.json"
+  train_json: "./data/anthropic/sft_train.json"
+  test_json: "./data/anthropic/sft_test.json"
   batch_size: 2
   max_examples: null
   tokenizer_name: tiktoken/gpt2
