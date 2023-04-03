@@ -3,7 +3,7 @@ seed_everything: true
 trainer:
   accelerator: auto
   strategy: auto
-  devices: auto
+  devices: 1
   num_nodes: 1
   precision: bf16-mixed
   logger: null
@@ -49,10 +49,10 @@ model:
   lora_rank: 0
   lr: 0.00001
   vocab_size: 50257
-  n_heads: 4
-  embedding_dim: 512
-  n_layers: 4
-  sequence_length: 256
+  n_heads: 12
+  embedding_dim: 768
+  n_layers: 12
+  sequence_length: 1024
   dropout_rate: 0.0
   activation_checkpointing: false
   use_bias: true
@@ -60,9 +60,9 @@ model:
   critic_weights: "./models/RM/rm.ckpt"
   policy_eps: 0.2
   value_eps: 0.4
-  actor_lr: 0.00001
-  critic_lr: 0.00001
-  kl_beta: 0.00003
+  actor_lr: 0.000008
+  critic_lr: 0.000008
+  kl_beta: 0.02
   max_new_tokens: 1024
 
 data:
@@ -71,7 +71,7 @@ data:
   batch_size: 4
   max_examples: null
   tokenizer_name: tiktoken/gpt2
-  sequence_length: 256
+  sequence_length: 1024
   shuffle: true
   num_workers: 4
 ckpt_path: null

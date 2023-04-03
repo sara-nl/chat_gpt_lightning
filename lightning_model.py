@@ -47,7 +47,7 @@ class LightningPPOModel(pl.LightningModule):
                         value_eps: float = 0.2,
                         actor_lr: float = 1e-4,
                         critic_lr: float = 1e-4,
-                        kl_beta: float = 0.00003,
+                        kl_beta: float = 0.02,
                         max_new_tokens: int = 1024):
 
         super().__init__()
@@ -293,12 +293,12 @@ class LightningRMModel(pl.LightningModule):
     def __init__(self,  hf_model: str = None, 
                         finetune_method: str = "",
                         lora_rank: int=0,
-                        lr: float = 6e-4,
-                        vocab_size: int=4,
-                        n_heads: int = 4,
-                        embedding_dim: int = 4,
-                        n_layers: int = 128,
-                        sequence_length: int = 64,
+                        lr: float = 1e-4,
+                        vocab_size: int=50,
+                        n_heads: int = 12,
+                        embedding_dim: int = 768,
+                        n_layers: int = 12,
+                        sequence_length: int = 256,
                         dropout_rate: float = 0.1,
                         activation_checkpointing: bool = False,
                         use_bias: bool = True,
@@ -342,7 +342,6 @@ class LightningRMModel(pl.LightningModule):
             # restructure state_dict
             checkpoint = {name.split("model._orig_mod.")[1]: param for name, param in checkpoint["state_dict"].items() if "model._orig_mod." in name}
 
-            print("checkpoint: ", checkpoint)
             self.model.backbone.load_state_dict(checkpoint, strict=True)
         
         # we replace its head for a reward model classifier head

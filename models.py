@@ -519,19 +519,19 @@ class GPTRewardModel(nn.Module):
             lora.mark_only_lora_as_trainable(self)
 
         else:
-            # fine tune last block, hard-coded the 4th layer, being the last one in 4 layer gpt-model
+            # fine tune last block, hard-coded the 11th layer, being the last one in 12 layer gpt-model
             trainable_params = [
-                "backbone.transformer.decoder_blocks.3.mmsa.mask",
-                "backbone.transformer.decoder_blocks.3.mmsa.qkv_projection.weight",
-                "backbone.transformer.decoder_blocks.3.mmsa.qkv_projection.bias",
-                "backbone.transformer.decoder_blocks.3.mmsa.output_projection.weight",
-                "backbone.transformer.decoder_blocks.3.mmsa.output_projection.bias",
-                "backbone.transformer.decoder_blocks.3.ln2.weight",
-                "backbone.transformer.decoder_blocks.3.ln2.bias",
-                "backbone.transformer.decoder_blocks.3.ffn.fc1.weight",
-                "backbone.transformer.decoder_blocks.3.ffn.fc1.bias",
-                "backbone.transformer.decoder_blocks.3.ffn.fc2.weight",
-                "backbone.transformer.decoder_blocks.3.ffn.fc2.bias",
+                "backbone.transformer.decoder_blocks.11.mmsa.mask",
+                "backbone.transformer.decoder_blocks.11.mmsa.qkv_projection.weight",
+                "backbone.transformer.decoder_blocks.11.mmsa.qkv_projection.bias",
+                "backbone.transformer.decoder_blocks.11.mmsa.output_projection.weight",
+                "backbone.transformer.decoder_blocks.11.mmsa.output_projection.bias",
+                "backbone.transformer.decoder_blocks.11.ln2.weight",
+                "backbone.transformer.decoder_blocks.11.ln2.bias",
+                "backbone.transformer.decoder_blocks.11.ffn.fc1.weight",
+                "backbone.transformer.decoder_blocks.11.ffn.fc1.bias",
+                "backbone.transformer.decoder_blocks.11.ffn.fc2.weight",
+                "backbone.transformer.decoder_blocks.11.ffn.fc2.bias",
                 "backbone.transformer.ln.weight",
                 "backbone.transformer.ln.bias", "value_head.weight"
             ]

@@ -4,8 +4,6 @@ Largely from https://github.com/ethanyanjiali/minChatGPT but minus fat.
 
 pip install -r requirements.txt
 
-Make sure to paste the best trained model into ./models/SFT/ or ./models/RM/
-respectively. 
 
 ```
 cd ./data/
@@ -15,19 +13,23 @@ python prepare_sft_data.py
 Train supervised finetuning:
  
 ```
-python train_sft.py fit -c config_stf.yml
+python train_sft.py fit -c ./configs/config_sft.yml
 ```
+
+Make sure to paste the best trained sft model into ./models/SFT/
 
 Train reward model:
 
 ```
-python train_rm.py fit -c config_rm.yml
+python train_rm.py fit -c ./configs/config_rm.yml
 ```
+
+Add the best reward model to ./models/RM/
 
 Train PPO:
 
 ```
-python train_ppo.py fit -c config_ppo.yml
+python train_ppo.py fit -c ./configs/config_ppo.yml
 ```
 
 TODO:
