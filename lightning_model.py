@@ -471,7 +471,7 @@ class LightningSFTModel(pl.LightningModule):
         
 
     def forward(self, sequence: torch.Tensor):
-        return self.model(sequence, )
+        return self.model(sequence)
 
     def _generate(self):
         self.model.eval()
@@ -492,6 +492,7 @@ class LightningSFTModel(pl.LightningModule):
 
         if batch_idx % 1000 == 0:
             text = self._generate()
+            self.model.train()
             self.logger.experiment.add_text(text_string=text, tag="generation")
 
         return loss
@@ -508,11 +509,11 @@ class LightningSFTModel(pl.LightningModule):
         return loss
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(0.9,0.999))
-        lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr, betas=(0.9,0.999))
+        #lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
         #lr_scheduler = get_linear_schedule_with_warmup(
         #                optimizer, num_warmup_steps=15, num_training_steps=100
         #            )
 
-        return {'optimizer': optimizer, 'lr_scheduler': lr_scheduler}
+        return {'optimizer': optimizer}
 

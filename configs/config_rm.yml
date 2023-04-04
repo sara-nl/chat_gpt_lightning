@@ -50,7 +50,7 @@ model:
   hf_model: null
   finetune_method: null
   lora_rank: 0
-  lr: 0.000005
+  lr: 0.00005
   vocab_size: 50257
   n_heads: 12
   embedding_dim: 768

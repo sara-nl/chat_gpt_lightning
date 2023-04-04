@@ -95,9 +95,8 @@ class MaskedMultiheadSelfAttention(nn.Module):
         attention = Q @ K.transpose(2, 3)
         attention *= 1.0 / math.sqrt(K.size(-1))
         # In transformer decoder, one word can only attend to words before itself
-        attention[torch.where(self.mask[:,:,:T,:T]==0)] = float("-inf")
-        #attention = attention.masked_fill(self.mask[:, :, :T, :T] == 0,
-        #                                  float('-inf'))  # (B, h, T, T)
+        #attention[torch.where(self.mask[:,:,:T,:T]==0)] = float("-inf")
+        attention = attention.masked_fill(self.mask[:, :, :T, :T] == 0,float('-inf'))  # (B, h, T, T)
         if attention_mask is not None:
             # https://github.com/huggingface/transformers/blob/c7f3abc257af9dfb6006a76f2b09b48355322d4d/src/transformers/models/gpt2/modeling_gpt2.py#L805
             # also, we don't need attend to padding tokens
@@ -232,10 +231,10 @@ class TransformerDecoder(nn.Module):
         self.token_embedding_layer = nn.Embedding(
             self.vocab_size, self.embedding_dim)  # (Vocab, d)
 
-        #self.postion_embedding_layer = nn.Embedding(self.vocab_size,
-        #                                            self.embedding_dim)
+        self.postion_embedding_layer = nn.Embedding(self.sequence_length,
+                                                    self.embedding_dim)
 
-        self.postion_embedding_layer = nn.Parameter(torch.empty(self.sequence_length, self.embedding_dim))
+        #self.postion_embedding_layer = nn.Parameter(torch.empty(self.sequence_length, self.embedding_dim))
         
         self.input_dropout = nn.Dropout(self.dropout_rate)
         self.decoder_blocks = nn.ModuleList([TransformerDecoderBlock(use_bias,embedding_dim,lora_rank,dropout_rate,n_heads,sequence_length) for _ in range(self.n_layers)])
@@ -245,10 +244,10 @@ class TransformerDecoder(nn.Module):
     def forward(self, x: Tensor, attention_mask: Tensor = None):
         B, T = x.shape
         offset = 0
-        #pos = torch.arange(0, T, dtype=torch.long).cuda().unsqueeze(0)  # (1, T)
+        pos = torch.arange(0, T, dtype=torch.long).cuda().unsqueeze(0)  # (1, T)
         token_embeddings = self.token_embedding_layer(x)  # (B, T, d)
-        #pos_embeddings = self.postion_embedding_layer[:T,:] # (B, T, d)
-        pos_embeddings = self.postion_embedding_layer[offset : offset + x.shape[-1]]
+        pos_embeddings = self.postion_embedding_layer(pos) # (B, T, d)
+        #pos_embeddings = self.postion_embedding_layer[offset : offset + x.shape[-1]]
         x = self.input_dropout(token_embeddings + pos_embeddings)
 
         # N decoder blocks
@@ -333,7 +332,7 @@ class GPT(nn.Module):
         def convert_state_key(k):
             huggingface_names = {
                 "token_embedding_layer": "wte",
-                "postion_embedding_layer": "wpe.weight",
+                "postion_embedding_layer": "wpe",
                 "decoder_blocks": "h",
                 "mmsa": "attn",
                 "ln1": "ln_1",
@@ -421,6 +420,7 @@ class GPT(nn.Module):
                 1) <= self.sequence_length else idx[:, -self.sequence_length:]
             # forward the model to get the logits for the index in the sequence
             logits = self(idx_cond)
+            #logits = logits.permute(0,2,1)
             # pluck the logits at the final step and scale by desired temperature
             logits = logits[:, -1, :] / temperature
             # optionally crop the logits to only the top k options

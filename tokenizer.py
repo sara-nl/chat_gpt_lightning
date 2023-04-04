@@ -4,7 +4,6 @@ from sentencepiece import SentencePieceProcessor
 from typing import List
 import os
 
-
 class TiktokenTokenizer():
 
     def __init__(self, name) -> None:
@@ -32,7 +31,6 @@ class TiktokenTokenizer():
             mask = torch.tensor(mask)
 
         return {"input_ids": ids, "attention_mask": mask}
-
 
 class LLaMATokenizer:
     """
