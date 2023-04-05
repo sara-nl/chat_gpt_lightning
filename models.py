@@ -431,6 +431,9 @@ class GPT(nn.Module):
             probs = F.softmax(logits, dim=-1)
             # sample from the distribution
             next_id = torch.multinomial(probs, num_samples=1)
+            
+            if self.tokenizer.enc.decode([next_id[0][0]])=="<|endoftext|>":
+                break
             # append sampled index to the running sequence and continue
             idx = torch.cat((idx, next_id), dim=1)
 
@@ -521,17 +524,17 @@ class GPTRewardModel(nn.Module):
         else:
             # fine tune last block, hard-coded the 11th layer, being the last one in 12 layer gpt-model
             trainable_params = [
-                "backbone.transformer.decoder_blocks.11.mmsa.mask",
-                "backbone.transformer.decoder_blocks.11.mmsa.qkv_projection.weight",
-                "backbone.transformer.decoder_blocks.11.mmsa.qkv_projection.bias",
-                "backbone.transformer.decoder_blocks.11.mmsa.output_projection.weight",
-                "backbone.transformer.decoder_blocks.11.mmsa.output_projection.bias",
-                "backbone.transformer.decoder_blocks.11.ln2.weight",
-                "backbone.transformer.decoder_blocks.11.ln2.bias",
-                "backbone.transformer.decoder_blocks.11.ffn.fc1.weight",
-                "backbone.transformer.decoder_blocks.11.ffn.fc1.bias",
-                "backbone.transformer.decoder_blocks.11.ffn.fc2.weight",
-                "backbone.transformer.decoder_blocks.11.ffn.fc2.bias",
+                "backbone.transformer.decoder_blocks.23.mmsa.mask",
+                "backbone.transformer.decoder_blocks.23.mmsa.qkv_projection.weight",
+                "backbone.transformer.decoder_blocks.23.mmsa.qkv_projection.bias",
+                "backbone.transformer.decoder_blocks.23.mmsa.output_projection.weight",
+                "backbone.transformer.decoder_blocks.23.mmsa.output_projection.bias",
+                "backbone.transformer.decoder_blocks.23.ln2.weight",
+                "backbone.transformer.decoder_blocks.23.ln2.bias",
+                "backbone.transformer.decoder_blocks.23.ffn.fc1.weight",
+                "backbone.transformer.decoder_blocks.23.ffn.fc1.bias",
+                "backbone.transformer.decoder_blocks.23.ffn.fc2.weight",
+                "backbone.transformer.decoder_blocks.23.ffn.fc2.bias",
                 "backbone.transformer.ln.weight",
                 "backbone.transformer.ln.bias", "value_head.weight"
             ]
@@ -546,9 +549,9 @@ class GPTCritic(nn.Module):
 
     def __init__(self, lora_rank: int,
                 vocab_size: int=50257,
-                n_heads: int = 12,
-                embedding_dim: int = 768,
-                n_layers: int = 12,
+                n_heads: int = 16,
+                embedding_dim: int = 1024,
+                n_layers: int = 24,
                 sequence_length: int = 1024,
                 dropout_rate: float = 0.1,
                 activation_checkpointing: bool = False,

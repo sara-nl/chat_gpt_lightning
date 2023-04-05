@@ -46,14 +46,14 @@ class LightningPPOModel(pl.LightningModule):
                         critic_weights: str = "",
                         policy_eps: float = 0.2,
                         value_eps: float = 0.2,
-                        actor_lr: float = 1e-4,
-                        critic_lr: float = 1e-4,
+                        actor_lr: float = 1e-6,
+                        critic_lr: float = 1e-6,
                         kl_beta: float = 0.02,
                         max_new_tokens: int = 1024):
 
         super().__init__()
 
-        self.actor = GPTActor(lora_rank,
+        self.actor = GPTActor(0,
                         vocab_size,
                         n_heads,
                         embedding_dim,
@@ -67,7 +67,7 @@ class LightningPPOModel(pl.LightningModule):
         checkpoint_actor = {name.split("model._orig_mod.")[1]: param for name, param in checkpoint_actor["state_dict"].items() if "model._orig_mod." in name}
         self.actor.model.load_state_dict(checkpoint_actor, strict=True)
         
-        self.sft_model = GPTActor(lora_rank,
+        self.sft_model = GPTActor(0,
                         vocab_size,
                         n_heads,
                         embedding_dim,
@@ -127,7 +127,7 @@ class LightningPPOModel(pl.LightningModule):
         self.kl_beta = kl_beta
         self.max_new_tokens = max_new_tokens
 
-        #self.automatic_optimization = False
+        self.automatic_optimization = False
         self.train_actor = True
         
 
@@ -234,53 +234,72 @@ class LightningPPOModel(pl.LightningModule):
 
         max_input_length = torch.max(input_lengths)
         prompt = prompt[:, :max_input_length]
-        experience = self.make_experience(prompt, input_masks, input_lengths)
 
-        self.log('KL_loss', experience.estimated_kl.mean(), on_step=True, on_epoch=False)
-        self.log('mean_advantage', experience.advantage.mean(),on_step=True, on_epoch=False)
-        self.log('mean_reward', experience.kl_penalized_reward.mean(),on_step=True, on_epoch=False)
+        actor_optimizer, critic_optimizer = self.optimizers()
+
+
+        #self.experience = self.make_experience(prompt, input_masks, input_lengths)
+
+        #self.log('KL_loss', self.experience.estimated_kl.mean(), on_step=True, on_epoch=False)
+        #self.log('mean_advantage', self.experience.advantage.mean(),on_step=True, on_epoch=False)
+        #self.log('mean_reward', self.experience.kl_penalized_reward.mean(),on_step=True, on_epoch=False)
 
         # we update either the actor or critic at a time
         # We could manually optimize and do the backwards ourselves
         # but in this way we let lightning handle accelerator, precision and strategy logic
-        if self.train_actor:
-            self.actor.train()
-            curr_actor_log_probs = self.actor.forward_actor(experience.completion, 
-                                                            experience.attention_mask, 
-                                                            experience.num_actions)
+        #if self.train_actor:
+        self.experience = self.make_experience(prompt, input_masks, input_lengths)
 
-            actor_loss = self.policy_loss(curr_actor_log_probs,
-                                        experience.actor_log_probs,
-                                        experience.advantage)
+        self.log('KL_loss', self.experience.estimated_kl.mean(), on_step=True, on_epoch=False)
+        self.log('mean_advantage', self.experience.advantage.mean(),on_step=True, on_epoch=False)
+        self.log('mean_reward', self.experience.kl_penalized_reward.mean(),on_step=True, on_epoch=False)
 
-            self.log('actor_loss', actor_loss.item(), on_step=True, on_epoch=False)
-            self.train_actor = False
-            return actor_loss
+        self.actor.train()
+        curr_actor_log_probs = self.actor.forward_actor(self.experience.completion, 
+                                                        self.experience.attention_mask, 
+                                                        self.experience.num_actions)
 
-        else:
-            self.critic.train()
-            new_values = self.critic.forward_critic(experience.completion, 
-                                                    experience.attention_mask,
-                                                    experience.num_actions).view(-1, 1)
-            
-            critic_loss = self.value_loss(new_values, 
-                                        experience.kl_penalized_reward, 
-                                        experience.values)
+        actor_loss = self.policy_loss(curr_actor_log_probs,
+                                    self.experience.actor_log_probs,
+                                    self.experience.advantage)
 
-            self.log('mean_value', new_values.mean(),on_step=True, on_epoch=False)
-            self.log('critic_loss', critic_loss.item(), on_step=True, on_epoch=False)
-            self.train_actor = True
-            return critic_loss
+        self.log('actor_loss', actor_loss.item(), on_step=True, on_epoch=False)
+        #self.train_actor = False
+        
+        self.manual_backward(actor_loss)
+        actor_optimizer.step()
+        actor_optimizer.zero_grad()
+        #return actor_loss
+
+        #else:
+        self.critic.train()
+        new_values = self.critic.forward_critic(self.experience.completion, 
+                                                self.experience.attention_mask,
+                                                self.experience.num_actions).view(-1, 1)
+        
+        critic_loss = self.value_loss(new_values, 
+                                    self.experience.kl_penalized_reward, 
+                                    self.experience.values)
+        
+        
+        self.manual_backward(critic_loss)
+        actor_optimizer.step()
+        critic_optimizer.zero_grad()
+
+        self.log('mean_value', new_values.mean(),on_step=True, on_epoch=False)
+        self.log('critic_loss', critic_loss.item(), on_step=True, on_epoch=False)
+        #self.train_actor = True
+        #return critic_loss
 
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        #actor_optimizer = torch.optim.AdamW(self.actor.parameters(), lr=self.actor_lr, betas=(0.9,0.999))
-        #critic_optimizer = torch.optim.AdamW(self.critic.parameters(), lr=self.critic_lr, betas=(0.9,0.999))
+        actor_optimizer = torch.optim.AdamW(self.actor.parameters(), lr=self.actor_lr, betas=(0.9,0.999))
+        critic_optimizer = torch.optim.AdamW(self.critic.parameters(), lr=self.critic_lr, betas=(0.9,0.999))
         
         # We can make two specific optimizers but for now 
         # this will do, in this way we let lightning help us more ;)
-        optimizer = torch.optim.AdamW([{'params': self.actor.parameters(), 'lr': self.actor_lr},
-                        {'params': self.critic.parameters(), 'lr': self.critic_lr}])
+        #optimizer = optimizer = torch.optim.AdamW([{'params': self.actor.parameters(), 'lr': self.actor_lr},
+        #                {'params': self.critic.parameters(), 'lr': self.critic_lr}])
 
         #self.lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
 
@@ -288,7 +307,7 @@ class LightningPPOModel(pl.LightningModule):
         #                optimizer, num_warmup_steps=15, num_training_steps=100
         #            )
 
-        return optimizer 
+        return actor_optimizer, critic_optimizer 
 
 class LightningRMModel(pl.LightningModule):
     def __init__(self,  hf_model: str = None, 
@@ -388,15 +407,15 @@ class LightningRMModel(pl.LightningModule):
 
     def training_step(self, batch: tuple, batch_idx: int) -> float:
         loss, _, _ = self._step(batch, batch_idx)
-        self.log('train_loss', loss.item(), on_step=True, on_epoch=False)
+        self.log('RM_train_loss', loss.item(), on_step=True, on_epoch=False)
         return loss
 
     def validation_step(self, batch: tuple, batch_idx: int):
         loss, positive_scores, negative_scores = self._step(batch, batch_idx)
-        self.log("valid_loss", loss.item(), on_step=True, on_epoch=False)
+        self.log("RM_valid_loss", loss.item(), on_step=True, on_epoch=False)
 
         true_positives = torch.count_nonzero(positive_scores > negative_scores)
-        self.log("batch_val_Accuracy", true_positives / batch[0].shape[0])
+        self.log("RM_batch_val_Accuracy", true_positives / batch[0].shape[0])
         return loss                    
 
     def _step(self, batch: tuple, batch_idx: int=None, stage: str=None):
@@ -413,12 +432,12 @@ class LightningRMModel(pl.LightningModule):
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(0.9,0.999))
-        lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.98)
+        #lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.98)
         #lr_scheduler = get_linear_schedule_with_warmup(
         #                optimizer, num_warmup_steps=15, num_training_steps=100
         #            )
 
-        return {'optimizer': optimizer, 'lr_scheduler': lr_scheduler}
+        return {'optimizer': optimizer}
 
 
 class LightningSFTModel(pl.LightningModule):

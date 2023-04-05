@@ -7,7 +7,6 @@ device = "cuda:0" if torch.cuda.is_available else "cpu"
 
 def load_model(model, args):
      checkpoint = torch.load(args.checkpoint, map_location="cpu")["state_dict"]
-     print(checkpoint)
      checkpoint = {name.split("model._orig_mod.")[1]: param for name, param in checkpoint.items() if "model._orig_mod." in name}
      model.load_state_dict(checkpoint, strict=True)
      return model
@@ -20,7 +19,7 @@ def predict(prompt, model, tokenizer, args):
                        return_tensors="pt")
     
     idx = tokens['input_ids'].unsqueeze(0).to(device)
-    completions = model.generate(idx, args.sequence_length, 0.9)
+    completions = model.generate(idx, args.sequence_length, 1.1)
 
     text = tokenizer.enc.decode(completions[0].cpu().tolist())
     return text
@@ -28,7 +27,6 @@ def predict(prompt, model, tokenizer, args):
 def main(args):
     
     tokenizer = TiktokenTokenizer("gpt2")
-
 
     model = GPT(args.lora_rank,
                 args.vocab_size,
@@ -45,8 +43,8 @@ def main(args):
     model.eval()
 
     while True:
+        print("="*20+"\n")
         input_str = input("Human:")
-
         print("Assistant: ", predict(input_str, model, tokenizer, args))
 
 
@@ -64,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument('--dropout_rate', type=float, default=0.0)
     parser.add_argument('--activation_checkpointing', type=bool, default=False)
     parser.add_argument('--use_bias', type=bool, default=True)
-    parser.add_argument('--checkpoint', type=str, default="./lightning_logs/version_26/checkpoints/epoch_0_step_107k.ckpt")
+    parser.add_argument('--checkpoint', type=str, default="./models/SFT/sft.ckpt")
 
     args = parser.parse_args()
     main(args)
