@@ -44,19 +44,19 @@ trainer:
 model:
   hf_model: null
   finetune_method: null
-  lora_rank: 0
+  lora_rank: 1
   lr: 0.00005
   vocab_size: 50257
-  n_heads: 16
-  embedding_dim: 1024
-  n_layers: 24
+  n_heads: 25
+  embedding_dim: 1600
+  n_layers: 48
   sequence_length: 1024
   dropout_rate: 0.0
   activation_checkpointing: false
   use_bias: true
   sft_ckpt_path: "./models/SFT/sft.ckpt"
 data:
-  batch_size: 64
+  batch_size: 32
   max_examples: null
   tokenizer_name: tiktoken/gpt2
   sequence_length: 1024

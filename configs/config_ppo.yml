@@ -9,7 +9,7 @@ trainer:
   logger: null
   callbacks: null
   fast_dev_run: false
-  max_epochs: 1
+  max_epochs: 100
   min_epochs: null
   max_steps: 20000
   min_steps: null
@@ -40,20 +40,16 @@ trainer:
   sync_batchnorm: false
   reload_dataloaders_every_n_epochs: 0
   default_root_dir: null
-  callbacks:
-    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
-      init_args:
-        every_n_train_steps: 100
 
 model:
-  lora_rank: 0
+  lora_rank: 1
   lr: 0.00001
   vocab_size: 50257
-  n_heads: 16
-  embedding_dim: 1024
-  n_layers: 24
+  n_heads: 25
+  embedding_dim: 1600
+  n_layers: 48
   sequence_length: 1024
-  dropout_rate: 0.1
+  dropout_rate: 0.0
   activation_checkpointing: false
   use_bias: true
   actor_weights: "./models/SFT/sft.ckpt"
@@ -62,16 +58,16 @@ model:
   value_eps: 0.4
   actor_lr: 0.000005
   critic_lr: 0.000009
-  kl_beta: 0.02
+  kl_beta: 0.01
   max_new_tokens: 256
 
 data:
   train_json: "./data/anthropic/sft_train.json"
   test_json: "./data/anthropic/sft_test.json"
-  batch_size: 4
-  max_examples: null
+  batch_size: 2
+  max_examples: 1000
   tokenizer_name: tiktoken/gpt2
   sequence_length: 1024
   shuffle: true
-  num_workers: 4
+  num_workers: 8
 ckpt_path: null

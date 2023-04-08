@@ -2,6 +2,7 @@ from torch.utils.data import Dataset, DataLoader
 from datasets import load_dataset
 from transformers import GPT2Tokenizer, GPT2TokenizerFast
 
+import random
 from typing import Tuple
 import torch
 import json
@@ -10,10 +11,10 @@ import lightning.pytorch as pl
 
 class SFTPromptDataset(Dataset):
 
-    def __init__(self, prompts: list[tuple]):
+    def __init__(self, prompts: list[tuple], max_examples: int):
         super().__init__()    
         
-        self.prompts = prompts
+        self.prompts = random.choices(prompts,k=max_examples)
         print("Length of prompt dataset: ", len(self.prompts))
 
     def __len__(self):
@@ -71,14 +72,14 @@ class SFTPromptDataModule(pl.LightningDataModule):
             prompts.append(
                 [tokens['input_ids'], tokens['attention_mask'], torch.sum(tokens['attention_mask'])])
             
-            if self.max_examples and cnt >= self.max_examples:
-                break
+            #if self.max_examples and cnt >= self.max_examples:
+            #    break
         
         print(f"Loaded {len(prompts)} tokens from {cnt} examples.")
         return prompts
 
     def setup(self, stage: str = None):
-        self.train_dataset = SFTPromptDataset(self.train_prompts)
+        self.train_dataset = SFTPromptDataset(self.train_prompts, self.max_examples)
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, 

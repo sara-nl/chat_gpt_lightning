@@ -398,6 +398,8 @@ class GPT(nn.Module):
                 with torch.no_grad():
                     model_states[dst_key].copy_(pretrained_states[src_key].t())
             else:
+                print(pretrained_states[src_key].shape)
+                print(model_states[dst_key].shape)
                 assert pretrained_states[src_key].shape == model_states[
                     dst_key].shape
                 with torch.no_grad():
@@ -515,7 +517,6 @@ class GPTRewardModel(nn.Module):
         out = self.value_head(hidden).mean(dim=1)
         return out
 
-
     def freeze_weights(self):
 
         if self.lora_rank > 0:
@@ -524,17 +525,17 @@ class GPTRewardModel(nn.Module):
         else:
             # fine tune last block, hard-coded the 11th layer, being the last one in 12 layer gpt-model
             trainable_params = [
-                "backbone.transformer.decoder_blocks.23.mmsa.mask",
-                "backbone.transformer.decoder_blocks.23.mmsa.qkv_projection.weight",
-                "backbone.transformer.decoder_blocks.23.mmsa.qkv_projection.bias",
-                "backbone.transformer.decoder_blocks.23.mmsa.output_projection.weight",
-                "backbone.transformer.decoder_blocks.23.mmsa.output_projection.bias",
-                "backbone.transformer.decoder_blocks.23.ln2.weight",
-                "backbone.transformer.decoder_blocks.23.ln2.bias",
-                "backbone.transformer.decoder_blocks.23.ffn.fc1.weight",
-                "backbone.transformer.decoder_blocks.23.ffn.fc1.bias",
-                "backbone.transformer.decoder_blocks.23.ffn.fc2.weight",
-                "backbone.transformer.decoder_blocks.23.ffn.fc2.bias",
+                "backbone.transformer.decoder_blocks.47.mmsa.mask",
+                "backbone.transformer.decoder_blocks.47.mmsa.qkv_projection.weight",
+                "backbone.transformer.decoder_blocks.47.mmsa.qkv_projection.bias",
+                "backbone.transformer.decoder_blocks.47.mmsa.output_projection.weight",
+                "backbone.transformer.decoder_blocks.47.mmsa.output_projection.bias",
+                "backbone.transformer.decoder_blocks.47.ln2.weight",
+                "backbone.transformer.decoder_blocks.47.ln2.bias",
+                "backbone.transformer.decoder_blocks.47.ffn.fc1.weight",
+                "backbone.transformer.decoder_blocks.47.ffn.fc1.bias",
+                "backbone.transformer.decoder_blocks.47.ffn.fc2.weight",
+                "backbone.transformer.decoder_blocks.47.ffn.fc2.bias",
                 "backbone.transformer.ln.weight",
                 "backbone.transformer.ln.bias", "value_head.weight"
             ]

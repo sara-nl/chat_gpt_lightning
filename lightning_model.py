@@ -6,6 +6,7 @@ from transformers import get_linear_schedule_with_warmup
 from typing import Union
 from models import GPT, GPTRewardModel, GPTActor, GPTCritic
 from tokenizer import TiktokenTokenizer
+from torch.cuda.amp.grad_scaler import GradScaler
 
 class Experience():
     def __init__(self, 
@@ -230,6 +231,8 @@ class LightningPPOModel(pl.LightningModule):
         return reward - self.kl_beta * estimated_kl, estimated_kl
 
     def training_step(self, batch: tuple, batch_idx: int) -> float:
+
+        scaler = GradScaler(enabled=True)
         prompt, input_masks, input_lengths = batch
 
         max_input_length = torch.max(input_lengths)
@@ -237,17 +240,6 @@ class LightningPPOModel(pl.LightningModule):
 
         actor_optimizer, critic_optimizer = self.optimizers()
 
-
-        #self.experience = self.make_experience(prompt, input_masks, input_lengths)
-
-        #self.log('KL_loss', self.experience.estimated_kl.mean(), on_step=True, on_epoch=False)
-        #self.log('mean_advantage', self.experience.advantage.mean(),on_step=True, on_epoch=False)
-        #self.log('mean_reward', self.experience.kl_penalized_reward.mean(),on_step=True, on_epoch=False)
-
-        # we update either the actor or critic at a time
-        # We could manually optimize and do the backwards ourselves
-        # but in this way we let lightning handle accelerator, precision and strategy logic
-        #if self.train_actor:
         self.experience = self.make_experience(prompt, input_masks, input_lengths)
 
         self.log('KL_loss', self.experience.estimated_kl.mean(), on_step=True, on_epoch=False)
@@ -264,14 +256,13 @@ class LightningPPOModel(pl.LightningModule):
                                     self.experience.advantage)
 
         self.log('actor_loss', actor_loss.item(), on_step=True, on_epoch=False)
-        #self.train_actor = False
         
-        self.manual_backward(actor_loss)
-        actor_optimizer.step()
+        self.manual_backward(scaler.scale(actor_loss))
+        scaler.unscale_(actor_optimizer)
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 2.0)
+        scaler.step(actor_optimizer)
         actor_optimizer.zero_grad()
-        #return actor_loss
 
-        #else:
         self.critic.train()
         new_values = self.critic.forward_critic(self.experience.completion, 
                                                 self.experience.attention_mask,
@@ -282,24 +273,20 @@ class LightningPPOModel(pl.LightningModule):
                                     self.experience.values)
         
         
-        self.manual_backward(critic_loss)
-        actor_optimizer.step()
+        self.manual_backward(scaler.scale(critic_loss))
+        scaler.unscale_(critic_optimizer)
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 2.0)
+        scaler.step(critic_optimizer)
         critic_optimizer.zero_grad()
 
         self.log('mean_value', new_values.mean(),on_step=True, on_epoch=False)
         self.log('critic_loss', critic_loss.item(), on_step=True, on_epoch=False)
-        #self.train_actor = True
-        #return critic_loss
+        scaler.update()
 
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         actor_optimizer = torch.optim.AdamW(self.actor.parameters(), lr=self.actor_lr, betas=(0.9,0.999))
         critic_optimizer = torch.optim.AdamW(self.critic.parameters(), lr=self.critic_lr, betas=(0.9,0.999))
-        
-        # We can make two specific optimizers but for now 
-        # this will do, in this way we let lightning help us more ;)
-        #optimizer = optimizer = torch.optim.AdamW([{'params': self.actor.parameters(), 'lr': self.actor_lr},
-        #                {'params': self.critic.parameters(), 'lr': self.critic_lr}])
 
         #self.lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
 
@@ -398,8 +385,7 @@ class LightningRMModel(pl.LightningModule):
         # diff = [[[0,                 0,                 0],
         #          [log(sigmoid(0.1)), 0,                 0],
         #          [log(sigmoid(0.2)), log(sigmoid(0.1)), 0]]]
-        log_odds = torch.tril(torch.log(torch.sigmoid(minuend - subtrahend)),
-                              -1)  # (B, C, C)
+        log_odds = torch.tril(torch.log(torch.sigmoid(minuend - subtrahend)),-1)  # (B, C, C)
         total_comparison = math.comb(C, 2)
         expectation = torch.sum(log_odds, dim=(1, 2)) / total_comparison
         loss = -(1 / total_comparison) * expectation.mean()
@@ -487,7 +473,6 @@ class LightningSFTModel(pl.LightningModule):
         self.finetune_method = finetune_method
         self.tokenizer = TiktokenTokenizer("gpt2")
         self.sequence_length = sequence_length
-        
 
     def forward(self, sequence: torch.Tensor):
         return self.model(sequence)
@@ -529,6 +514,7 @@ class LightningSFTModel(pl.LightningModule):
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr, betas=(0.9,0.999))
+        
         #lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
         #lr_scheduler = get_linear_schedule_with_warmup(
         #                optimizer, num_warmup_steps=15, num_training_steps=100
